@@ -4,9 +4,17 @@ const INITIAL_RADIUS = Number(process.env.INITIAL_MATCH_RADIUS_METERS || 4828); 
 const EXPANSION_FACTOR = Number(process.env.MATCH_RADIUS_EXPANSION_FACTOR || 1.6);
 const MAX_ATTEMPTS = Number(process.env.MAX_MATCH_ATTEMPTS || 4); // 4828 -> ~7725 -> ~12360 -> ~19776m (~12.3mi cap)
 
+/**
+ * Rule-based "smart matching" score (PRD §6.3, §6.13 — pragmatic v1,
+ * not a trained model). Weighs proximity against the Runner's average
+ * rating as a stand-in for reliability/acceptance likelihood until
+ * enough completed-errand history exists to do better.
+ *
+ * Score is 0–1, higher is better.
+ */
 function scoreCandidate({ distanceMeters, radiusMeters, avgRating }) {
-  const proximityScore = 1 - Math.min(distanceMeters / radiusMeters, 1);
-  const reliabilityScore = (avgRating ?? 4.0) / 5;
+  const proximityScore = 1 - Math.min(distanceMeters / radiusMeters, 1); // closer = higher
+  const reliabilityScore = (avgRating ?? 4.0) / 5; // no ratings yet → neutral default
   return proximityScore * 0.6 + reliabilityScore * 0.4;
 }
 
@@ -28,6 +36,16 @@ async function getAverageRatings(runnerIds) {
   return avgs;
 }
 
+/**
+ * Attempts to match an errand to the best available Runner, expanding
+ * the search radius through MAX_ATTEMPTS steps if nobody's found (PRD
+ * §6.3 — "automatically expanding the radius at defined intervals").
+ *
+ * NOTE: this runs synchronously within the request for MVP simplicity.
+ * In production this should be a queued/background job so radius
+ * expansion can happen over real elapsed time (e.g. every 30s) rather
+ * than all at once — flagging as a known scaffold limitation.
+ */
 async function matchErrand(errandId, { excludeRunnerIds = [] } = {}) {
   let radius = INITIAL_RADIUS;
 
@@ -56,7 +74,7 @@ async function matchErrand(errandId, { excludeRunnerIds = [] } = {}) {
 
       const best = scored[0];
 
-      const { error: updateErr } = await supabase
+      const { data: updated, error: updateErr } = await supabase
         .from("errands")
         .update({
           status: "matched",
@@ -65,7 +83,9 @@ async function matchErrand(errandId, { excludeRunnerIds = [] } = {}) {
           match_radius_meters: Math.round(radius),
           matching_score: best.score,
         })
-        .eq("id", errandId);
+        .eq("id", errandId)
+        .select()
+        .single();
 
       if (updateErr) throw updateErr;
 
@@ -75,6 +95,7 @@ async function matchErrand(errandId, { excludeRunnerIds = [] } = {}) {
         metadata: { runner_id: best.runner_id, attempt, radius_meters: Math.round(radius), score: best.score },
       });
 
+      // TODO: push a real-time notification to the offered Runner here
       return { matched: true, runnerId: best.runner_id, radiusMeters: Math.round(radius), attempt, candidateCount: candidates.length };
     }
 

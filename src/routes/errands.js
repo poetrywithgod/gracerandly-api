@@ -7,6 +7,7 @@ const router = express.Router();
 const MAX_CONCURRENT = Number(process.env.MAX_CONCURRENT_ERRANDS_PER_RUNNER || 3);
 const INITIAL_RADIUS = Number(process.env.INITIAL_MATCH_RADIUS_METERS || 4828);
 
+// POST /errands — Requester creates an errand (PRD §6.2)
 router.post("/", async (req, res) => {
   const { requesterId, category, pickup, dropoff, items, instructions, isRecurring, rawAiText } = req.body;
 
@@ -46,12 +47,14 @@ router.post("/", async (req, res) => {
   res.status(201).json({ errand: data, match: matchResult });
 });
 
+// GET /errands/:id
 router.get("/:id", async (req, res) => {
   const { data, error } = await supabase.from("errands").select("*").eq("id", req.params.id).single();
   if (error) return res.status(404).json({ error: "Errand not found" });
   res.json(data);
 });
 
+// POST /errands/:id/accept — Runner accepts their offered match (PRD §6.3, load cap enforced)
 router.post("/:id/accept", async (req, res) => {
   const { runnerId } = req.body;
   const errandId = req.params.id;
@@ -72,7 +75,7 @@ router.post("/:id/accept", async (req, res) => {
     .update({ runner_id: runnerId, status: "accepted", accepted_at: new Date().toISOString() })
     .eq("id", errandId)
     .eq("status", "matched")
-    .eq("offered_runner_id", runnerId)
+    .eq("offered_runner_id", runnerId) // only the Runner this errand was offered to can accept it
     .select()
     .single();
 
@@ -88,6 +91,7 @@ router.post("/:id/accept", async (req, res) => {
   res.json(data);
 });
 
+// POST /errands/:id/decline — Runner declines their offer; re-run matching excluding them
 router.post("/:id/decline", async (req, res) => {
   const { runnerId } = req.body;
   const errandId = req.params.id;
@@ -115,8 +119,9 @@ router.post("/:id/decline", async (req, res) => {
   res.json({ declined: true, rematch: matchResult });
 });
 
+// POST /errands/:id/pickup — geofence-gated status change (PRD §6.4)
 router.post("/:id/pickup", async (req, res) => {
-  const { runnerLat, runnerLng, targetLat, targetLng } = req.body;
+  const { runnerLat, runnerLng } = req.body;
   const errandId = req.params.id;
 
   const { data: errand, error: fetchErr } = await supabase
@@ -126,6 +131,10 @@ router.post("/:id/pickup", async (req, res) => {
     .single();
   if (fetchErr) return res.status(404).json({ error: "Errand not found" });
 
+  // NOTE: pickup_location is stored as geography; for this MVP scaffold we
+  // expect the caller to also pass targetLat/targetLng captured at errand
+  // creation time until a lookup helper is added.
+  const { targetLat, targetLng } = req.body;
   if (targetLat == null || targetLng == null) {
     return res.status(400).json({ error: "targetLat/targetLng required (pickup coordinates)" });
   }
