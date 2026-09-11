@@ -4,6 +4,7 @@ const cors = require("cors");
 const morgan = require("morgan");
 
 const errandsRouter = require("./routes/errands");
+const usersRouter = require("./routes/users");
 
 const app = express();
 app.use(cors());
@@ -15,9 +16,9 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/errands", errandsRouter);
+app.use("/users", usersRouter);
 
 // TODO as this grows:
-//   app.use("/users", require("./routes/users"));
 //   app.use("/trust-safety", require("./routes/trustSafety"));
 //   app.use("/payments", require("./routes/payments"));
 //   app.use("/admin", require("./routes/admin"));
