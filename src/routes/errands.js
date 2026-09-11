@@ -44,7 +44,9 @@ router.post("/", async (req, res) => {
 
   const matchResult = await matchErrand(data.id);
 
-  res.status(201).json({ errand: data, match: matchResult });
+  const { data: freshErrand } = await supabase.from("errands").select("*").eq("id", data.id).single();
+
+  res.status(201).json({ errand: freshErrand || data, match: matchResult });
 });
 
 // GET /errands/:id
