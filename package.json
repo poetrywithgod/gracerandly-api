@@ -1,0 +1,23 @@
+{
+  "name": "gracerandly-api",
+  "version": "0.1.0",
+  "description": "Gracerandly API layer — Node/Express, sits in front of Supabase. Get it done without leaving.",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "geolib": "^3.3.4",
+    "morgan": "^1.10.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
