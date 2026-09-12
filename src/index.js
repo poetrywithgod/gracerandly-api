@@ -7,6 +7,7 @@ const errandsRouter = require("./routes/errands");
 const usersRouter = require("./routes/users");
 const paymentsRouter = require("./routes/payments");
 const authRouter = require("./routes/auth");
+const adminRouter = require("./routes/admin");
 
 const app = express();
 app.use(cors());
@@ -21,10 +22,10 @@ app.use("/errands", errandsRouter);
 app.use("/users", usersRouter);
 app.use("/payments", paymentsRouter);
 app.use("/auth", authRouter);
+app.use("/admin", adminRouter);
 
 // TODO as this grows:
 //   app.use("/trust-safety", require("./routes/trustSafety"));
-//   app.use("/admin", require("./routes/admin"));
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {

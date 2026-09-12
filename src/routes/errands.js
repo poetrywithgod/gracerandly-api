@@ -53,8 +53,8 @@ router.post("/", authenticate, requireRole("requester"), async (req, res) => {
   res.status(201).json({ errand: freshErrand || data, match: matchResult });
 });
 
-// GET /errands — list, optionally filtered by status (Admin dashboard use — unauthenticated for now)
-router.get("/", async (req, res) => {
+// GET /errands — list, optionally filtered by status (Admin dashboard use)
+router.get("/", authenticate, requireRole("platform_admin", "trust_safety_admin", "finance_ops_admin"), async (req, res) => {
   const { status } = req.query;
   let query = supabase.from("errands").select("*").order("created_at", { ascending: false }).limit(100);
   if (status) query = query.eq("status", status);

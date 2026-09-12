@@ -1,13 +1,11 @@
 const express = require("express");
 const { supabase } = require("../config/supabase");
-const { authenticate } = require("../middleware/auth");
+const { authenticate, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 
 // GET /users — list, optionally filtered by role (Admin dashboard use)
-// NOTE: unauthenticated for now — this becomes admin-only once admin
-// auth exists. Tracked as a known gap, not forgotten.
-router.get("/", async (req, res) => {
+router.get("/", authenticate, requireRole("platform_admin", "trust_safety_admin", "finance_ops_admin"), async (req, res) => {
   const { role } = req.query;
   let query = supabase.from("users").select("id, role, full_name, phone, email, created_at, runner_profiles(*)").order("created_at", { ascending: false }).limit(100);
   if (role) query = query.eq("role", role);
